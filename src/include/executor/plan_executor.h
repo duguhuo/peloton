@@ -64,7 +64,8 @@ class PlanExecutor {
                                    const std::vector<type::Value> &params,
                                    std::vector<ResultValue> &result,
                                    const std::vector<int> &result_format,
-                                   executor::ExecuteResult &p_status);
+                                   executor::ExecuteResult &p_status,
+                                   std::string &error_message);
 
   /*
    * @brief When a peloton node recvs a query plan, this function is invoked

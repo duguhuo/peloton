@@ -167,19 +167,21 @@ executor::ExecuteResult TrafficCop::ExecuteHelper(
     std::vector<ResultValue> &result_;
     const std::vector<int> &result_format_;
     executor::ExecuteResult &p_status_;
+    std::string &error_message_;
   };
   auto exec_plan_arg = new ExecutePlanArg{.plan_ = std::move(plan),
                                           .txn_ = txn,
                                           .params_ = params,
                                           .result_ = result,
                                           .result_format_ = result_format,
-                                          .p_status_ = p_status_};
+                                          .p_status_ = p_status_,
+                                          .error_message_ = error_message_};
 
   threadpool::MonoQueuePool::GetInstance().SubmitTask([](void *arg_ptr) {
     auto arg = reinterpret_cast<ExecutePlanArg *>(arg_ptr);
     executor::PlanExecutor::ExecutePlan(arg->plan_, arg->txn_, arg->params_,
                                         arg->result_, arg->result_format_,
-                                        arg->p_status_);
+                                        arg->p_status_, arg->error_message_);
     delete (arg);
   }, exec_plan_arg, task_callback_, task_callback_arg_);
 
