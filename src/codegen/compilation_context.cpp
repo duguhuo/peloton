@@ -67,10 +67,10 @@ void CompilationContext::Prepare(const expression::AbstractExpression &exp) {
 }
 
 // Produce tuples for the given operator
-void CompilationContext::Produce(const planner::AbstractPlan &op) {
+std::vector<CodeGenStage> CompilationContext::Produce(const planner::AbstractPlan &op) {
   auto *translator = GetTranslator(op);
   PL_ASSERT(translator != nullptr);
-  translator->Produce();
+  return translator->Produce();
 }
 
 // Generate all plan functions for the given query
@@ -98,7 +98,7 @@ void CompilationContext::GeneratePlan(QueryCompiler::CompileStats *stats) {
   llvm::Function *init = GenerateInitFunction();
 
   // Generate the plan() function
-  llvm::Function *plan = GeneratePlanFunction(query_.GetPlan());
+  std::vector<CodeGenStage> stages = GeneratePlanFunction(query_.GetPlan());
 
   // Generate the  tearDown() function
   llvm::Function *tear_down = GenerateTearDownFunction();
@@ -111,7 +111,7 @@ void CompilationContext::GeneratePlan(QueryCompiler::CompileStats *stats) {
   }
 
   // Next, we prepare the query statement with the functions we've generated
-  Query::QueryFunctions funcs = {init, plan, tear_down};
+  Query::QueryFunctions funcs = {init, stages, tear_down};
   bool prepared = query_.Prepare(funcs);
   if (!prepared) {
     throw Exception{"There was an error preparing the compiled query"};
@@ -176,30 +176,15 @@ llvm::Function *CompilationContext::GenerateInitFunction() {
 }
 
 // Generate the code for the plan() function of the query
-llvm::Function *CompilationContext::GeneratePlanFunction(
+std::vector<CodeGenStage> CompilationContext::GeneratePlanFunction(
     const planner::AbstractPlan &root) {
-  // Create function definition
-  auto &code_context = query_.GetCodeContext();
-  auto &runtime_state = query_.GetRuntimeState();
-
-  auto plan_fn_name = "_" + std::to_string(code_context.GetID()) + "_plan";
-  FunctionBuilder function_builder{
-      code_context,
-      plan_fn_name,
-      codegen_.VoidType(),
-      {{"runtimeState", runtime_state.FinalizeType(codegen_)->getPointerTo()}}};
-
   // Load the query parameter values
-  parameter_cache_.Populate(codegen_, GetQueryParametersPtr());
+//  parameter_cache_.Populate(codegen_, GetQueryParametersPtr());
 
   // Generate the primary plan logic
-  Produce(root);
+  std::vector<CodeGenStage> stages = Produce(root);
 
-  // Finish the function
-  function_builder.ReturnAndFinish();
-
-  // Get the function
-  return function_builder.GetFunction();
+  return stages;
 }
 
 // Generate the code for the tearDown() function of the query

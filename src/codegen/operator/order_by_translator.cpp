@@ -212,15 +212,26 @@ void OrderByTranslator::DefineAuxiliaryFunctions() {
   compare_func_ = compare.GetFunction();
 }
 
-void OrderByTranslator::Produce() const {
+std::vector<CodeGenStage> OrderByTranslator::Produce() const {
   LOG_DEBUG("OrderBy requesting child to produce tuples ...");
 
   // Let the child produce the tuples we materialize into a buffer
-  GetCompilationContext().Produce(*plan_.GetChild(0));
+  std::vector<CodeGenStage> child_stages =
+      GetCompilationContext().Produce(*plan_.GetChild(0));
+
+  auto &codegen = GetCodeGen();
+  auto &code_context = codegen.GetCodeContext();
+  auto &compilation_context = GetCompilationContext();
+  auto &runtime_state = compilation_context.GetRuntimeState();
+
+  FunctionBuilder function_builder{
+      code_context,
+      "order_by_stage",
+      codegen.VoidType(),
+      {{"runtime_state", runtime_state.FinalizeType(codegen)->getPointerTo()}}};
 
   LOG_DEBUG("OrderBy buffered tuples into sorter, going to sort ...");
 
-  auto &codegen = GetCodeGen();
   auto *sorter_ptr = LoadStatePtr(sorter_id_);
 
   // The tuples have been materialized into the buffer space, NOW SORT!!!
@@ -239,6 +250,16 @@ void OrderByTranslator::Produce() const {
                             callback);
 
   LOG_DEBUG("OrderBy completed producing tuples ...");
+
+  function_builder.ReturnAndFinish();
+  CodeGenStage order_by_stage = {
+      .kind_ = StageKind::SINGLE_THREADED,
+      .llvm_func_ = function_builder.GetFunction(),
+  };
+
+  std::vector<CodeGenStage> stages = std::move(child_stages);
+  stages.push_back(order_by_stage);
+  return stages;
 }
 
 void OrderByTranslator::Consume(ConsumerContext &, RowBatch::Row &row) const {

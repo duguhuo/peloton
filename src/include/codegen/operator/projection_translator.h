@@ -41,7 +41,7 @@ class ProjectionTranslator : public OperatorTranslator {
   void DefineAuxiliaryFunctions() override {}
 
   // Produce!
-  void Produce() const override;
+  std::vector<CodeGenStage> Produce() const override;
 
   // Consume!
   void Consume(ConsumerContext &context, RowBatch::Row &row) const override;

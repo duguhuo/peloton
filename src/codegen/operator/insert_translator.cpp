@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "codegen/function_builder.h"
 #include "codegen/proxy/inserter_proxy.h"
 #include "codegen/proxy/query_parameters_proxy.h"
 #include "codegen/proxy/storage_manager_proxy.h"
@@ -56,22 +57,31 @@ void InsertTranslator::InitializeState() {
   codegen.Call(InserterProxy::Init, {inserter, table_ptr, executor_ptr});
 }
 
-void InsertTranslator::Produce() const {
-  auto &context = GetCompilationContext();
+std::vector<CodeGenStage> InsertTranslator::Produce() const {
+  auto &compiltaion_context = GetCompilationContext();
   if (insert_plan_.GetChildrenSize() != 0) {
     // The insert has a child (a scan); it's an insert-from-select. Let the
     // child produce the tuples we'll insert in Consume()
-    context.Produce(*insert_plan_.GetChild(0));
+    return compiltaion_context.Produce(*insert_plan_.GetChild(0));
   } else {
     // Regular insert with constants
     auto &codegen = GetCodeGen();
+    auto &code_context = codegen.GetCodeContext();
+    auto &runtime_state = compiltaion_context.GetRuntimeState();
+
+    FunctionBuilder function_builder{
+        code_context,
+        "order_by_stage",
+        codegen.VoidType(),
+        {{"runtime_state", runtime_state.FinalizeType(codegen)->getPointerTo()}}};
+
     auto *inserter = LoadStatePtr(inserter_state_id_);
 
     auto num_tuples = insert_plan_.GetBulkInsertCount();
     auto num_columns = insert_plan_.GetTable()->GetSchema()->GetColumnCount();
 
     // Read tuple data from the parameter storage and insert
-    const auto &parameter_cache = context.GetParameterCache();
+    const auto &parameter_cache = compiltaion_context.GetParameterCache();
     for (uint32_t tuple_idx = 0; tuple_idx < num_tuples; tuple_idx++) {
       auto *tuple_ptr =
           codegen.Call(InserterProxy::AllocateTupleStorage, {inserter});
@@ -81,7 +91,9 @@ void InsertTranslator::Produce() const {
       std::vector<codegen::Value> values;
       for (uint32_t column_id = 0; column_id < num_columns; column_id++) {
         auto value =
-            parameter_cache.GetValue(column_id + tuple_idx * num_columns);
+            parameter_cache.GetValue(
+                codegen, compiltaion_context.GetQueryParametersPtr(),
+                column_id + tuple_idx * num_columns);
         values.push_back(value);
       }
       table_storage_.StoreValues(codegen, tuple_ptr, values, pool);
@@ -89,6 +101,12 @@ void InsertTranslator::Produce() const {
       // Complete the insertion
       codegen.Call(InserterProxy::Insert, {inserter});
     }
+
+    function_builder.ReturnAndFinish();
+    return {CodeGenStage{
+        .kind_ = StageKind::SINGLE_THREADED,
+        .llvm_func_ = function_builder.GetFunction(),
+    }};
   }
 }
 

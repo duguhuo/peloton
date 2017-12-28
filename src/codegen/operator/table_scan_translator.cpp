@@ -12,6 +12,7 @@
 
 #include "codegen/operator/table_scan_translator.h"
 
+#include "codegen/function_builder.h"
 #include "codegen/lang/if.h"
 #include "codegen/lang/local_variable.h"
 #include "codegen/proxy/executor_context_proxy.h"
@@ -62,9 +63,18 @@ TableScanTranslator::TableScanTranslator(const planner::SeqScanPlan &scan,
 }
 
 // Produce!
-void TableScanTranslator::Produce() const {
+std::vector<CodeGenStage> TableScanTranslator::Produce() const {
   auto &codegen = GetCodeGen();
+  auto &code_context = codegen.GetCodeContext();
+  auto &compilation_context = GetCompilationContext();
+  auto &runtime_state = compilation_context.GetRuntimeState();
   auto &table = GetTable();
+
+  FunctionBuilder function_builder{
+      code_context,
+      "table_scan",
+      codegen.VoidType(),
+      {{"runtime_state", runtime_state.FinalizeType(codegen)->getPointerTo()}}};
 
   LOG_TRACE("TableScan on [%u] starting to produce tuples ...", table.GetOid());
 
@@ -102,6 +112,12 @@ void TableScanTranslator::Produce() const {
   table_.GenerateScan(codegen, table_ptr, sel_vec.GetCapacity(), scan_consumer,
                       predicate_ptr, num_preds);
   LOG_TRACE("TableScan on [%u] finished producing tuples ...", table.GetOid());
+
+  function_builder.ReturnAndFinish();
+  return {CodeGenStage{
+      .kind_ = StageKind::SINGLE_THREADED,
+      .llvm_func_ = function_builder.GetFunction(),
+  }};
 }
 
 // Get the stringified name of this scan

@@ -57,7 +57,7 @@ class CompilationContext {
   void Prepare(const expression::AbstractExpression &expression);
 
   // Produce the tuples for the given operator
-  void Produce(const planner::AbstractPlan &op);
+  std::vector<CodeGenStage> Produce(const planner::AbstractPlan &op);
 
   // This is the main entry point into the compilation component. Callers
   // construct a compilation context, then invoke this method to compile
@@ -101,7 +101,7 @@ class CompilationContext {
   llvm::Function *GenerateInitFunction();
 
   // Generate the produce() function of the query
-  llvm::Function *GeneratePlanFunction(const planner::AbstractPlan &root);
+  std::vector<CodeGenStage> GeneratePlanFunction(const planner::AbstractPlan &root);
 
   // Generate the tearDown() function of the query
   llvm::Function *GenerateTearDownFunction();

@@ -14,6 +14,7 @@
 
 #include "codegen/code_context.h"
 #include "codegen/runtime_state.h"
+#include "codegen/stage.h"
 #include "codegen/query_parameters.h"
 #include "codegen/parameter_cache.h"
 #include "executor/executor_context.h"
@@ -36,6 +37,7 @@ class AbstractPlan;
 namespace codegen {
 
 class QueryResultConsumer;
+class CodeGenStage;
 
 //===----------------------------------------------------------------------===//
 // A query statement that can be compiled
@@ -50,7 +52,7 @@ class Query {
 
   struct QueryFunctions {
     llvm::Function *init_func;
-    llvm::Function *plan_func;
+    std::vector<CodeGenStage> stages;
     llvm::Function *tear_down_func;
   };
 
@@ -102,9 +104,9 @@ class Query {
   RuntimeState runtime_state_;
 
   // The init(), plan() and tearDown() functions
-  typedef void (*compiled_function_t)(char *);
+  using compiled_function_t = void (*)(char *);
   compiled_function_t init_func_;
-  compiled_function_t plan_func_;
+  std::vector<Stage> stages_;
   compiled_function_t tear_down_func_;
 
  private:

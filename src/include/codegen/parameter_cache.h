@@ -29,16 +29,15 @@ class ParameterCache {
   // Constructor
   ParameterCache(const QueryParametersMap &map) : parameters_map_(map) {}
 
-  // Set the parameter values
-  void Populate(CodeGen &codegen, llvm::Value *query_parameters_ptr);
-
   // Get the codegen value for the specific index
-  codegen::Value GetValue(uint32_t index) const;
+  codegen::Value GetValue(CodeGen &codegen,
+                          llvm::Value *query_parameters_ptr,
+                          uint32_t index) const;
 
  private:
   codegen::Value DeriveParameterValue(CodeGen &codegen,
       llvm::Value *query_parameters_ptr, uint32_t index,
-      peloton::type::TypeId type_id, bool is_nullable);
+      peloton::type::TypeId type_id, bool is_nullable) const;
 
  private:
   // Parameter information

@@ -21,26 +21,21 @@
 namespace peloton {
 namespace codegen {
 
-void ParameterCache::Populate(CodeGen &codegen,
-    llvm::Value *query_parameters_ptr) {
+codegen::Value ParameterCache::GetValue(CodeGen &codegen,
+                                        llvm::Value *query_parameters_ptr,
+                                        uint32_t index) const {
   auto &parameters = parameters_map_.GetParameters();
-  for (uint32_t i = 0; i < parameters.size(); i++) {
-    auto &parameter = parameters[i];
-    auto type_id = parameter.GetValueType();
-    auto is_nullable = parameter.IsNullable();
-    auto val = DeriveParameterValue(codegen, query_parameters_ptr, i,
-                                    type_id, is_nullable);
-    values_.push_back(val);
-  }
-}
-
-codegen::Value ParameterCache::GetValue(uint32_t index) const {
-  return values_[index];
+  auto &parameter = parameters[index];
+  auto type_id = parameter.GetValueType();
+  auto is_nullable = parameter.IsNullable();
+  auto val = DeriveParameterValue(codegen, query_parameters_ptr, index,
+                                  type_id, is_nullable);
+  return val;
 }
 
 codegen::Value ParameterCache::DeriveParameterValue(CodeGen &codegen,
     llvm::Value *query_parameters_ptr, uint32_t index,
-    peloton::type::TypeId type_id, bool is_nullable) {
+    peloton::type::TypeId type_id, bool is_nullable) const {
   llvm::Value *val = nullptr, *len = nullptr;
   std::vector<llvm::Value *> args = {query_parameters_ptr,
                                      codegen.Const32(index)};
