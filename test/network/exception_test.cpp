@@ -42,11 +42,35 @@ static void *LaunchServer(peloton::network::NetworkManager network_manager,
   }
   return NULL;
 }
+void *PlannerExceptionTest(int port) {
+  try {
+    pqxx::connection C(StringUtil::Format(
+        "host=127.0.0.1 port=%d user=postgres sslmode=disable application_name=psql", port));
+    int exception_count = 0, total = 1;
+    pqxx::work txn1(C);
+    try {
+      txn1.exec("CREATE TABLE A (val1 INT, val2 INT,  val3 INT,  val4 INT);");
+      txn1.exec("INSERT INTO A (val1, val2, val3, val4, val5) VALUES (1, 1, 1, 1, 1);");
+      txn1.commit();
+    } catch (const pqxx::pqxx_exception &e) {
+      const pqxx::sql_error *s = dynamic_cast<const pqxx::sql_error *>(&e.base());
+      if (s) {
+        LOG_TRACE("Invalid Insert Query: %s", e.base().what());
+        exception_count += 1;
+      }
+    }
+    EXPECT_EQ(exception_count, total);
+  }catch (const std::exception &e) {
+    LOG_ERROR("[ExceptionTest] Exception occurred: %s", e.what());
+    EXPECT_TRUE(false);
+  }
+  return NULL;
+}
 void *ExecutorExceptionTest(int port) {
   try {
     pqxx::connection C(StringUtil::Format(
         "host=127.0.0.1 port=%d user=postgres sslmode=disable application_name=psql", port));
-    int exception_count = 0, total = 2;
+    int exception_count = 0, total = 1;
     pqxx::work txn1(C);
     try {
       txn1.exec("CREATE TABLE foo(id INT);");
