@@ -14,6 +14,7 @@
 #include "codegen/stage.h"
 #include "codegen/query.h"
 #include "codegen/query_result_consumer.h"
+#include "common/stack_trace.h"
 #include "common/timer.h"
 #include "concurrency/transaction_context.h"
 #include "executor/plan_executor.h"
@@ -41,6 +42,7 @@ static void ExecuteStages(std::vector<Stage>::iterator begin,
           try {
             begin->func_ptr_(param);
           } catch (Exception e) {
+//            PrintStackTrace();
             error_message = e.what();
             on_complete(false);
             return;
