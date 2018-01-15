@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "common/logger.h"
+#include "common/exception.h"
 #include "threadpool/worker_pool.h"
 
 namespace peloton {

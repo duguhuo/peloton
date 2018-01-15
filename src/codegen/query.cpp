@@ -14,7 +14,7 @@
 #include "codegen/stage.h"
 #include "codegen/query.h"
 #include "codegen/query_result_consumer.h"
-#include "common/stack_trace.h"
+#include "common/exception.h"
 #include "common/timer.h"
 #include "concurrency/transaction_context.h"
 #include "executor/plan_executor.h"
@@ -40,13 +40,16 @@ static void ExecuteStages(std::vector<Stage>::iterator begin,
       case StageKind::SINGLE_THREADED: {
         pool.SubmitTask([&pool, begin, end, param, &error_message, on_complete] {
           try {
+            LOG_INFO("[ExecuteStages]");
             begin->func_ptr_(param);
-          } catch (Exception e) {
-//            PrintStackTrace();
+          } catch (Exception &e) {
+            LOG_INFO("Caught exception.");
+            Exception::PrintStackTrace();
             error_message = e.what();
             on_complete(false);
             return;
           }
+          LOG_INFO("HERE??");
           ExecuteStages(begin + 1, end, param, error_message, on_complete);
         });
         break;
@@ -91,7 +94,7 @@ void Query::Execute(std::unique_ptr<executor::ExecutorContext> executor_context,
   timer->Start();
 
   // Call init
-  LOG_TRACE("Calling query's init() ...");
+  LOG_INFO("Calling query's init() ...");
   try {
     init_func_(param);
   } catch (...) {
@@ -146,14 +149,14 @@ void Query::Execute(std::unique_ptr<executor::ExecutorContext> executor_context,
 }
 
 bool Query::Prepare(const QueryFunctions &query_funcs) {
-  LOG_TRACE("Going to JIT the query ...");
+  LOG_INFO("Going to JIT the query ...");
 
   // Compile the code
   if (!code_context_.Compile()) {
     return false;
   }
 
-  LOG_TRACE("Setting up Query ...");
+  LOG_INFO("Setting up Query ...");
 
   // Get pointers to the JITed functions
   init_func_ = (compiled_function_t)code_context_.GetRawFunctionPointer(
@@ -174,7 +177,7 @@ bool Query::Prepare(const QueryFunctions &query_funcs) {
       query_funcs.tear_down_func);
   PL_ASSERT(tear_down_func_ != nullptr);
 
-  LOG_TRACE("Query has been setup ...");
+  LOG_INFO("Query has been setup ...");
 
   // All is well
   return true;

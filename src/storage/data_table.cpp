@@ -343,6 +343,7 @@ bool DataTable::InsertTuple(const AbstractTuple *tuple,
     ItemPointer location, concurrency::TransactionContext *transaction,
     ItemPointer **index_entry_ptr) {
   if (CheckConstraints(tuple) == false) {
+    throw Exception{"Constraint violated"};
     LOG_TRACE("InsertTuple(): Constraint violated");
     return false;
   }
@@ -364,12 +365,14 @@ bool DataTable::InsertTuple(const AbstractTuple *tuple,
   }
   // Index checks and updates
   if (InsertInIndexes(tuple, location, transaction, index_entry_ptr) == false) {
+    throw Exception{"Index constraint violated"};
     LOG_TRACE("Index constraint violated");
     return false;
   }
 
   // ForeignKey checks
   if (CheckForeignKeyConstraints(tuple) == false) {
+    throw Exception{"Foreigney constraint violated"};
     LOG_TRACE("ForeignKey constraint violated");
     return false;
   }

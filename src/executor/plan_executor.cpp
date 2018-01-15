@@ -14,7 +14,7 @@
 #include "executor/plan_executor.h"
 #include "codegen/buffering_consumer.h"
 #include "codegen/query_cache.h"
-#include "common/stack_trace.h"
+#include "common/exception.h"
 #include "concurrency/transaction_manager_factory.h"
 #include "executor/executors.h"
 #include "settings/settings_manager.h"
@@ -131,7 +131,7 @@ static void InterpretPlan(
     result.m_result = ResultType::SUCCESS;
     result.m_processed = executor_context->num_processed;
   } catch(Exception e) {
-//    PrintStackTrace();
+    Exception::PrintStackTrace();
     result.m_result = ResultType::FAILURE;
     txn->SetResult(ResultType::FAILURE);
     error_message = e.what();
