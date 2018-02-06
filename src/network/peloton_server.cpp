@@ -120,6 +120,7 @@ void PelotonServer::SSLInit() {
   ssl_context = SSL_CTX_new(SSLv23_method());
   if (ssl_context == nullptr) {
     SetSSLLevel(SSLLevel::SSL_DISABLE);
+    SSLMutexCleanup();
     return;
   }
   //TODO(Yuchen): change this.
@@ -140,6 +141,7 @@ void PelotonServer::SSLInit() {
     LOG_ERROR("Exception when loading server certificate!");
     ssl_context = nullptr;
     SetSSLLevel(SSLLevel::SSL_DISABLE);
+    SSLMutexCleanup();
     return;
   }
 
@@ -149,6 +151,7 @@ void PelotonServer::SSLInit() {
     LOG_ERROR("Exception when loading server key!");
     ssl_context = nullptr;
     SetSSLLevel(SSLLevel::SSL_DISABLE);
+    SSLMutexCleanup();
     return;
   }
 
@@ -156,6 +159,7 @@ void PelotonServer::SSLInit() {
     SSL_CTX_free(ssl_context);
     ssl_context = nullptr;
     SetSSLLevel(SSLLevel::SSL_DISABLE);
+    SSLMutexCleanup();
     return;
   }
 
@@ -172,7 +176,7 @@ void PelotonServer::SSLInit() {
     //SSL_VERIFY_NONE: Server does not request certificate from client.
     SSL_CTX_set_verify(ssl_context, SSL_VERIFY_NONE, VerifyCallback);
   }
-  //SSLv2 and SSLv3 are deprecated, shoud not use them
+  //SSLv2 and SSLv3 are deprecated, should not use them
   //TODO(Yuchen): postgres uses SSLv2 | SSLv3 | SSL_OP_SINGLE_DH_USE
   SSL_CTX_set_options(ssl_context, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
   //TODO(Yuchen): adding certificate revocation lists
@@ -276,7 +280,10 @@ void PelotonServer::ServerLoop() {
     status = close(listen_fd_);
   } while (status < 0 && errno == EINTR);
   LOG_DEBUG("Already Closed the connection %d", listen_fd_);
-
+  if (ssl_context != nullptr) {
+    SSL_CTX_free(ssl_context);
+  }
+  SSLMutexCleanup();
   LOG_INFO("Server Closed");
 }
 
